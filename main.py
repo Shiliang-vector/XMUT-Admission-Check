@@ -284,7 +284,7 @@ def main():
 
 
 if __name__ == "__main__":
-        try:
+    try:
         main()  # 执行主程序
     except Exception as e:
         print(f"程序出错：{e}")  # 捕获异常并显示
