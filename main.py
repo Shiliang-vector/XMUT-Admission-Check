@@ -289,5 +289,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"程序出错：{e}")  # 捕获异常并显示
     finally:
-            input("按回车键退出...")
+        input("按回车键退出...")
         sys.exit(0)
