@@ -1,13 +1,11 @@
-name: Python 自动构建与发布
+name: Python 多系统自动构建与发布
 
-# 触发条件：推送到main分支或创建版本标签时执行
 on:
   push:
     branches: [ main ]
-    tags: [ 'v*' ]  # 匹配v1.0.0等版本标签
+    tags: [ 'v*' ]
 
 jobs:
-  # 代码检查与测试阶段
   check-and-test:
     runs-on: ubuntu-latest
     strategy:
@@ -22,24 +20,39 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: 'pip'  # 保留缓存加速构建
+          cache: 'pip'
 
       - name: 安装依赖
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install flake8 pytest  # 保留必要工具
+          pip install flake8 pytest
 
-      - name: 代码风格检查 (flake8)
+      - name: 代码检查 (flake8)
         run: |
           flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
 
+      - name: 单元测试 (pytest)
+        run: pytest  
 
-  # 构建与发布阶段
-  build-and-release:
+
+  build-artifacts:
     needs: check-and-test
     if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]  # 新增macOS系统
+        include:
+          - os: ubuntu-latest
+            artifact-name: linux
+            executable-name: xmut-admission-linux
+          - os: windows-latest
+            artifact-name: windows
+            executable-name: xmut-admission-windows.exe
+          - os: macos-latest
+            artifact-name: macos
+            executable-name: xmut-admission-macos
 
     steps:
       - name: 拉取代码
@@ -57,37 +70,67 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
+      # 打包源代码（仅在Linux上执行一次，避免重复）
       - name: 打包源代码
+        if: matrix.os == 'ubuntu-latest'
         run: |
           zip -r "xmut-admission-${{ github.ref_name }}-source.zip" \
             main.py util/ README.md requirements.txt
 
-      - name: 构建Linux可执行文件
+      # 构建各系统可执行文件
+      - name: 构建可执行文件
         run: |
-          pyinstaller --onefile --name "xmut-admission-linux" main.py
-          mv dist/xmut-admission-linux .
+          pyinstaller --onefile --name "${{ matrix.executable-name }}" main.py
+          # 根据不同系统移动输出文件
+          $outputPath = if ('${{ matrix.os }}' -eq 'windows-latest') {
+            "dist\${{ matrix.executable-name }}"
+          } else {
+            "dist/${{ matrix.executable-name }}"
+          }
+          mv $outputPath .
+        shell: pwsh  # 使用跨平台的PowerShell语法
 
-      - name: 构建Windows可执行文件
-        uses: addnab/docker-run-action@v3
+      # 上传构建产物
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
         with:
-          image: python:3.10-windowsservercore
-          options: >-
-            -v ${{ github.workspace }}:C:\work
-            -w C:\work
-          run: |
-            pip install -r requirements.txt
-            pip install pyinstaller
-            pyinstaller --onefile --name "xmut-admission-windows.exe" main.py
-            move dist\xmut-admission-windows.exe .
+          name: ${{ matrix.artifact-name }}-artifacts
+          path: |
+            xmut-admission-*.zip  # 仅Linux会产生此文件
+            ${{ matrix.executable-name }}
+
+
+  create-release:
+    needs: build-artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - name: 下载所有构建产物
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      # 整理文件结构（可选，让Release文件更整洁）
+      - name: 整理发布文件
+        run: |
+          mkdir release-files
+          cp artifacts/linux-artifacts/*.zip release-files/  # 源代码包
+          cp artifacts/linux-artifacts/xmut-admission-linux release-files/
+          cp artifacts/windows-artifacts/xmut-admission-windows.exe release-files/
+          cp artifacts/macos-artifacts/xmut-admission-macos release-files/
 
       - name: 创建GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           title: "厦门理工学院录取查询工具 ${{ github.ref_name }}"
-          body: "厦门理工学院录取查询工具 ${github.ref_name} 版本发布"
+          body: |
+            厦门理工学院录取查询工具 ${{ github.ref_name }} 版本发布
+            
+            支持系统：
+            - Linux
+            - Windows
+            - macOS
           files: |
-            xmut-admission-${{ github.ref_name }}-source.zip
-            xmut-admission-linux
-            xmut-admission-windows.exe
+            release-files/*
           draft: false
           prerelease: false
+
