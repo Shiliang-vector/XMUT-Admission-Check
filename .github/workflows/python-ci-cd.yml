@@ -1,0 +1,96 @@
+name: Python 自动构建与发布
+
+# 触发条件：推送到main分支或创建版本标签时执行
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]  # 匹配v1.0.0等版本标签
+
+jobs:
+  # 代码检查与测试阶段
+  check-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ "3.10" ]
+
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 设置Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'  # 保留缓存加速构建
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install flake8 pytest  # 保留必要工具
+
+      - name: 代码风格检查 (flake8)
+        run: |
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: 单元测试 (pytest)
+        run: pytest  
+
+
+  # 构建与发布阶段
+  build-and-release:
+    needs: check-and-test
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 设置Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: 打包源代码
+        run: |
+          zip -r "xmut-admission-${{ github.ref_name }}-source.zip" \
+            main.py util/ README.md requirements.txt
+
+      - name: 构建Linux可执行文件
+        run: |
+          pyinstaller --onefile --name "xmut-admission-linux" main.py
+          mv dist/xmut-admission-linux .
+
+      - name: 构建Windows可执行文件
+        uses: addnab/docker-run-action@v3
+        with:
+          image: python:3.10-windowsservercore
+          options: >-
+            -v ${{ github.workspace }}:C:\work
+            -w C:\work
+          run: |
+            pip install -r requirements.txt
+            pip install pyinstaller
+            pyinstaller --onefile --name "xmut-admission-windows.exe" main.py
+            move dist\xmut-admission-windows.exe .
+
+      - name: 创建GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          title: "厦门理工学院录取查询工具 ${{ github.ref_name }}"
+          body: "厦门理工学院录取查询工具 ${github.ref_name} 版本发布"
+          files: |
+            xmut-admission-${{ github.ref_name }}-source.zip
+            xmut-admission-linux
+            xmut-admission-windows.exe
+          draft: false
+          prerelease: false
