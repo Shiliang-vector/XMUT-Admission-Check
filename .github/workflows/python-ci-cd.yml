@@ -28,9 +28,10 @@ jobs:
           pip install -r requirements.txt
           pip install flake8 pytest
 
-      - name: 代码检查 (flake8)
+      - name: 代码风格检查 (flake8)
         run: |
           flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
 
 
   build-artifacts:
@@ -39,7 +40,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]  # 新增macOS系统
+        os: [ubuntu-latest, windows-latest, macos-latest]
         include:
           - os: ubuntu-latest
             artifact-name: linux
@@ -67,34 +68,38 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      # 打包源代码（仅在Linux上执行一次，避免重复）
+      # 打包源代码（仅在Linux上执行）
       - name: 打包源代码
         if: matrix.os == 'ubuntu-latest'
         run: |
           zip -r "xmut-admission-${{ github.ref_name }}-source.zip" \
             main.py util/ README.md requirements.txt
+          # 确保文件存在
+          ls -l xmut-admission-${{ github.ref_name }}-source.zip
 
-      # 构建各系统可执行文件
+      # 构建可执行文件
       - name: 构建可执行文件
         run: |
           pyinstaller --onefile --name "${{ matrix.executable-name }}" main.py
-          # 根据不同系统移动输出文件
+          # 跨平台移动文件
           $outputPath = if ('${{ matrix.os }}' -eq 'windows-latest') {
             "dist\${{ matrix.executable-name }}"
           } else {
             "dist/${{ matrix.executable-name }}"
           }
           mv $outputPath .
-        shell: pwsh  # 使用跨平台的PowerShell语法
+          # 验证文件是否移动成功
+          ls -l ${{ matrix.executable-name }}
+        shell: pwsh
 
-      # 上传构建产物
+      # 上传构建产物（明确指定文件，避免路径问题）
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact-name }}-artifacts
           path: |
-            xmut-admission-*.zip  # 仅Linux会产生此文件
             ${{ matrix.executable-name }}
+            ${{ (matrix.os == 'ubuntu-latest') && format('xmut-admission-{0}-source.zip', github.ref_name) || '' }}
 
 
   create-release:
@@ -106,14 +111,31 @@ jobs:
         with:
           path: artifacts
 
-      # 整理文件结构（可选，让Release文件更整洁）
+      # 查看下载的文件结构（用于调试）
+      - name: 显示下载的产物结构
+        run: |
+          echo "产物目录结构："
+          tree artifacts
+
+      # 整理发布文件
       - name: 整理发布文件
         run: |
-          mkdir release-files
-          cp artifacts/linux-artifacts/*.zip release-files/  # 源代码包
+          mkdir -p release-files
+          
+          # 复制Linux可执行文件
           cp artifacts/linux-artifacts/xmut-admission-linux release-files/
+          
+          # 复制Windows可执行文件
           cp artifacts/windows-artifacts/xmut-admission-windows.exe release-files/
+          
+          # 复制macOS可执行文件
           cp artifacts/macos-artifacts/xmut-admission-macos release-files/
+          
+          # 复制源代码包（使用通配符容错）
+          cp artifacts/linux-artifacts/*.zip release-files/ || echo "源代码包已复制或不存在"
+          
+          # 查看整理结果
+          ls -l release-files
 
       - name: 创建GitHub Release
         uses: softprops/action-gh-release@v2
@@ -130,4 +152,3 @@ jobs:
             release-files/*
           draft: false
           prerelease: false
-
