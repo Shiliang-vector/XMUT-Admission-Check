@@ -25,7 +25,7 @@ def setup_logger():
 
 # 读取配置
 def read_config():
-    config_path = "../信息技术/config.json"
+    config_path = "config.json"
     default_config = {
         "ksh": "",
         "sfzh": "",
@@ -58,7 +58,7 @@ def read_config():
 # 保存配置
 def save_config(config):
     try:
-        with open("../信息技术/config.json", 'w', encoding='utf-8') as f:
+        with open("config.json", 'w', encoding='utf-8') as f:
             json.dump(config, f, ensure_ascii=False, indent=4)
         return True
     except Exception as e:
