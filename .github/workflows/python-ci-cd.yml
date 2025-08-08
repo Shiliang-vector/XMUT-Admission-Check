@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [ "3.10" ]
+        python-version: [ "3.12" ]  
 
     steps:
       - name: 拉取代码
@@ -56,10 +56,10 @@ jobs:
       - name: 拉取代码
         uses: actions/checkout@v4
 
-      - name: 设置Python
+      - name: 设置Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.12'  
           cache: 'pip'
 
       - name: 安装依赖
@@ -72,24 +72,27 @@ jobs:
       - name: 打包源代码
         if: matrix.os == 'ubuntu-latest'
         run: |
-          zip -r "xmut-admission-${{ github.ref_name }}-source.zip" \
+          zip -r "xmut-admission-source-${{ github.ref_name }}.zip" \
             main.py util/ README.md requirements.txt
           # 确保文件存在
-          ls -l xmut-admission-${{ github.ref_name }}-source.zip
+          ls -l xmut-admission-source-${{ github.ref_name }}.zip
 
       # 构建可执行文件
       - name: 构建可执行文件
         run: |
-          pyinstaller --onefile --name "${{ matrix.executable-name }}" main.py
+          $versionedName = "${{ matrix.executable-name }}-${{ github.ref_name }}"
+          pyinstaller --onefile --name "$versionedName" main.py
+          
           # 跨平台移动文件
           $outputPath = if ('${{ matrix.os }}' -eq 'windows-latest') {
-            "dist\${{ matrix.executable-name }}"
+            "dist\$versionedName.exe"
           } else {
-            "dist/${{ matrix.executable-name }}"
+            "dist/$versionedName"
           }
           mv $outputPath .
+          
           # 验证文件是否移动成功
-          ls -l ${{ matrix.executable-name }}
+          ls -l $versionedName*
         shell: pwsh
 
       # 上传构建产物（明确指定文件，避免路径问题）
@@ -98,8 +101,8 @@ jobs:
         with:
           name: ${{ matrix.artifact-name }}-artifacts
           path: |
-            ${{ matrix.executable-name }}
-            ${{ (matrix.os == 'ubuntu-latest') && format('xmut-admission-{0}-source.zip', github.ref_name) || '' }}
+            xmut-admission-*-${{ github.ref_name }}*
+            ${{ (matrix.os == 'ubuntu-latest') && format('xmut-admission-source-{0}.zip', github.ref_name) || '' }}
 
 
   create-release:
@@ -123,16 +126,16 @@ jobs:
           mkdir -p release-files
           
           # 复制Linux可执行文件
-          cp artifacts/linux-artifacts/xmut-admission-linux release-files/
+          cp artifacts/linux-artifacts/xmut-admission-linux-* release-files/
           
           # 复制Windows可执行文件
-          cp artifacts/windows-artifacts/xmut-admission-windows.exe release-files/
+          cp artifacts/windows-artifacts/xmut-admission-windows-*.exe release-files/
           
           # 复制macOS可执行文件
-          cp artifacts/macos-artifacts/xmut-admission-macos release-files/
+          cp artifacts/macos-artifacts/xmut-admission-macos-* release-files/
           
-          # 复制源代码包（使用通配符容错）
-          cp artifacts/linux-artifacts/*.zip release-files/ || echo "源代码包已复制或不存在"
+          # 复制源代码包
+          cp artifacts/linux-artifacts/xmut-admission-source-*.zip release-files/ || echo "源代码包已复制或不存在"
           
           # 查看整理结果
           ls -l release-files
