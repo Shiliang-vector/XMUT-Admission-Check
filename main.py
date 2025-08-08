@@ -6,6 +6,7 @@ import sys
 import logging
 from datetime import datetime
 import keyboard
+# 假设以下导入存在
 from util.Notifier import NotifierBase
 from util.Push import PushPlusNotifier, ServerChanTurboNotifier
 
@@ -16,12 +17,12 @@ def clear_keyboard_events():
     # 清除所有热键和事件钩子
     keyboard.unhook_all()
     keyboard.clear_all_hotkeys()
-
+    
     # 等待所有可能影响输入的按键释放
     blocked_keys = ['up', 'down', 'enter', 'esc', 'left', 'right', 'ctrl', 'shift']
     while any(keyboard.is_pressed(key) for key in blocked_keys):
         time.sleep(0.05)
-
+    
     # 额外等待一小段时间确保系统事件处理完成
     time.sleep(0.1)
 
@@ -31,13 +32,13 @@ def safe_input(prompt):
     """安全的输入函数，确保不会接收残留的回车事件"""
     # 先清空事件
     clear_keyboard_events()
-
+    
     # 使用低级别的键盘读取，过滤掉之前的残留事件
     keyboard._pressed_events.clear()  # 清除已按下的键记录
-
+    
     # 显示提示
     print(prompt, end='', flush=True)
-
+    
     # 手动读取输入，避免input()函数的缓冲区问题
     input_str = []
     while True:
@@ -57,7 +58,7 @@ def safe_input(prompt):
             elif len(event.name) == 1:  # 普通字符
                 input_str.append(event.name)
                 print(event.name, end='', flush=True)
-
+    
     return ''.join(input_str)
 
 
@@ -148,23 +149,23 @@ def init_notifier(push_method, pushplus_token, serverchan_token) -> None | Notif
 def keyboard_menu(menu_title, menu_items, current_selection=None):
     """通用键盘菜单，返回选中索引或-1（ESC）"""
     selected_index = 0
-
+    
     if current_selection is not None and 0 <= current_selection < len(menu_items):
         selected_index = current_selection
-
+    
     while True:
         os.system('cls' if os.name == 'nt' else 'clear')
         print(f"===== {menu_title} =====")
         print("使用上下方向键选择，按回车键确认，按ESC键返回上一层\n")
-
+        
         for i, item in enumerate(menu_items):
             if i == selected_index:
                 print(f"> {item}")
             else:
                 print(f"  {item}")
-
+        
         print("\n======================")
-
+        
         # 等待用户按键
         event = keyboard.read_event(suppress=True)  # 抑制事件，避免影响后续输入
         if event.event_type == keyboard.KEY_DOWN:
@@ -201,7 +202,7 @@ def prefill_info(config):
             sfzh_status = format_partial_hide(config['sfzh']) if config['sfzh'] else "未填写"
 
             info_menu = [
-                f"1. 考生号 - {ksh_status}",
+                f"1. 预填信息 - 填写考生号以及身份证号",
                 f"2. 身份证号 - {sfzh_status}",
                 "3. 返回上一层"
             ]
@@ -217,10 +218,10 @@ def prefill_info(config):
                 print("按ESC键取消修改，输入完成后按回车键确认\n")
                 current_ksh = config['ksh']
                 display_ksh = format_partial_hide(current_ksh) if current_ksh else "无"
-
+                
                 # 使用安全输入函数替代input()
                 new_ksh = safe_input(f"请输入考生号（当前：{display_ksh}）：")
-
+                
                 if new_ksh is None:  # 用户按了ESC
                     print("\n已取消修改考生号")
                 else:
@@ -244,10 +245,10 @@ def prefill_info(config):
                 print("按ESC键取消修改，输入完成后按回车键确认\n")
                 current_sfzh = config['sfzh']
                 display_sfzh = format_partial_hide(current_sfzh) if current_sfzh else "无"
-
+                
                 # 使用安全输入函数替代input()
                 new_sfzh = safe_input(f"请输入身份证号（当前：{display_sfzh}）：")
-
+                
                 if new_sfzh is None:  # 用户按了ESC
                     print("\n已取消修改身份证号")
                 else:
@@ -255,8 +256,8 @@ def prefill_info(config):
                     if new_sfzh:
                         new_sfzh_upper = new_sfzh.upper()
                         if len(new_sfzh_upper) == 18 and (
-                                new_sfzh_upper[:-1].isdigit() and
-                                (new_sfzh_upper[-1].isdigit() or new_sfzh_upper[-1] == 'X')
+                            new_sfzh_upper[:-1].isdigit() and 
+                            (new_sfzh_upper[-1].isdigit() or new_sfzh_upper[-1] == 'X')
                         ):
                             config['sfzh'] = new_sfzh_upper
                             if save_config(config):
@@ -272,7 +273,7 @@ def prefill_info(config):
 
             elif choice == 2:
                 break
-
+                
     except KeyboardInterrupt:
         print("\n返回上一层...")
         time.sleep(1)
@@ -289,7 +290,7 @@ def configure_query(config):
                 "3. 选择查询模式",
                 "4. 返回上一层"
             ]
-
+            
             choice = keyboard_menu("查询配置", config_menu)
             if choice == -1:
                 print("\n返回上一层...")
@@ -299,10 +300,10 @@ def configure_query(config):
             if choice == 0:  # 设置查询间隔
                 print("\n===== 设置查询间隔 =====")
                 print("按ESC键取消，输入完成后按回车键确认\n")
-
+                
                 # 使用安全输入函数
                 interval_input = safe_input(f"请输入查询间隔（秒，当前：{config['interval']}）：")
-
+                
                 if interval_input is None:  # 用户按了ESC
                     print("\n已取消设置查询间隔")
                 else:
@@ -320,9 +321,9 @@ def configure_query(config):
                             print("输入错误，请输入有效的数字！\n")
                     else:
                         print("未修改查询间隔\n")
-
+                
                 input("按回车键返回...")
-
+            
             elif choice == 1:  # 选择推送方式
                 push_methods = [
                     "1. PushPlus（需输入token）",
@@ -331,99 +332,99 @@ def configure_query(config):
                 ]
                 method_map = {0: "pushplus", 1: "serverchan_turbo", 2: "none"}
                 current_method = config['push']['method']
-
+                
                 current_selection = 2
                 if current_method == "pushplus":
                     current_selection = 0
                 elif current_method == "serverchan_turbo":
                     current_selection = 1
-
+                
                 method_choice = keyboard_menu("选择推送方式", push_methods, current_selection)
                 if method_choice == -1:
                     print("\n返回上一层...")
                     time.sleep(1)
                     continue
-
+                
                 push_method = method_map[method_choice]
-
+                
                 if push_method == "pushplus":
                     print("\n===== 设置PushPlus =====")
                     print("按ESC键取消，输入完成后按回车键确认\n")
-
+                    
                     # 使用安全输入函数
                     pushplus_token = safe_input(
                         f"请输入PushPlus token（当前：{config['push']['pushplus_token']}）："
                     )
-
+                    
                     if pushplus_token is None:  # 用户按了ESC
                         print("\n已取消设置PushPlus")
                     else:
                         pushplus_token = pushplus_token.strip() or config['push']['pushplus_token']
-
+                        
                         if not pushplus_token:
                             print("警告：未输入Token，推送功能将禁用")
                             push_method = "none"
-
+                        
                         config['push']['pushplus_token'] = pushplus_token
                         config['push']['method'] = push_method
                         save_config(config)
                         print("配置已保存\n")
-
+                    
                     input("按回车键返回...")
-
+                
                 elif push_method == "serverchan_turbo":
                     print("\n===== 设置ServerChan Turbo =====")
                     print("按ESC键取消，输入完成后按回车键确认\n")
-
+                    
                     # 使用安全输入函数
                     serverchan_token = safe_input(
                         f"请输入ServerChan Turbo token（当前：{config['push']['serverchan_token']}）："
                     )
-
+                    
                     if serverchan_token is None:  # 用户按了ESC
                         print("\n已取消设置ServerChan Turbo")
                     else:
                         serverchan_token = serverchan_token.strip() or config['push']['serverchan_token']
-
+                        
                         if not serverchan_token:
                             print("警告：未输入Token，推送功能将禁用")
                             push_method = "none"
-
+                        
                         config['push']['serverchan_token'] = serverchan_token
                         config['push']['method'] = push_method
                         save_config(config)
                         print("配置已保存\n")
-
+                    
                     input("按回车键返回...")
-
+                
                 else:
                     config['push']['method'] = "none"
                     save_config(config)
                     print("已设置为不使用推送\n")
                     input("按回车键返回...")
-
+            
             elif choice == 2:  # 选择查询模式
                 query_modes = [
                     "1. 查询录取，查到录取时停止并推送",
                     "2. 查询录取通知书是否发出（EMS单号变化时停止）",
                     "3. 检测到数据变更时推送，并继续查询"
                 ]
-
+                
                 current_selection = config['query_mode'] - 1
                 mode_choice = keyboard_menu("选择查询模式", query_modes, current_selection)
                 if mode_choice == -1:
                     print("\n返回上一层...")
                     time.sleep(1)
                     continue
-
+                
                 config['query_mode'] = mode_choice + 1
                 save_config(config)
                 print(f"已选择查询模式：{config['query_mode']}\n")
                 input("按回车键返回...")
-
+            
             elif choice == 3:
                 break
-
+                
     except KeyboardInterrupt:
         print("\n返回上一层...")
         time.sleep(1)
@@ -440,12 +441,12 @@ def test_push(config):
             config['push']['pushplus_token'],
             config['push']['serverchan_token']
         )
-
+        
         if not notifier:
             print("未配置有效的推送方式，请先在查询配置中设置\n")
             input("按回车键返回...")
             return
-
+        
         try:
             title = "测试推送"
             content = "这是一条测试推送，说明推送功能正常"
@@ -455,7 +456,7 @@ def test_push(config):
                 print("推送测试失败，请检查配置\n")
         except Exception as e:
             print(f"推送测试失败：{str(e)}\n")
-
+        
         input("按回车键返回...")
     except KeyboardInterrupt:
         print("\n返回上一层...")
@@ -466,7 +467,7 @@ def test_push(config):
 def send_notification(notifier: None | NotifierBase, response_json, current_time):
     if not notifier:
         return False
-
+        
     tdd_data = response_json.get("tdd", {})
     name = tdd_data.get("xm", "未知姓名")
     college = tdd_data.get("xy", "未知学院")
@@ -474,7 +475,7 @@ def send_notification(notifier: None | NotifierBase, response_json, current_time
     ems_num = tdd_data.get("dh", "未知单号")
     notice_num = tdd_data.get("tzsbh", "未知编号")
     address = tdd_data.get("txdz", "未知地址")
-
+    
     push_content = (
         f"🎉 厦门理工学院录取信息更新 🎉\n\n"
         f"📌 基本信息\n"
@@ -488,7 +489,7 @@ def send_notification(notifier: None | NotifierBase, response_json, current_time
         f"通讯地址：{address}\n\n"
         f"⏰ 查询时间：{current_time}"
     )
-
+    
     try:
         notifier.send(title="厦门理工学院录取信息更新", message=push_content)
         print("推送成功\n")
@@ -503,37 +504,35 @@ def start_query(config, logger):
     try:
         print("\n===== 开始查询 =====")
         print("按ESC键停止查询并返回上一层\n")
-
+        
         if not config['ksh'] or not config['sfzh']:
             print("请先填写考生号和身份证号！\n")
             input("按回车键返回...")
             return
-
+        
         notifier = init_notifier(
             config['push']['method'],
             config['push']['pushplus_token'],
             config['push']['serverchan_token']
         )
-        method_name = "PushPlus" if config['push']['method'] == "pushplus" else "ServerChan Turbo" if config['push'][
-                                                                                                          'method'] != "none" else ""
+        method_name = "PushPlus" if config['push']['method'] == "pushplus" else "ServerChan Turbo" if config['push']['method'] != "none" else ""
         if notifier:
             print(f"已启用 {method_name} 推送\n")
         else:
             print("未启用推送功能\n")
-
+        
         query_count = 0
         has_pushed = False
         last_response = config['last_response']
-
+        
         stop_flag = False
-
         def on_esc_press(event):
             nonlocal stop_flag
             if event.name == 'esc' and event.event_type == keyboard.KEY_DOWN:
                 stop_flag = True
-
+        
         keyboard.on_press(on_esc_press)
-
+        
         try:
             while not stop_flag:
                 query_count += 1
@@ -559,7 +558,7 @@ def start_query(config, logger):
 
                     try:
                         response_json = response.json()
-
+                        
                         if config['query_mode'] == 3:
                             if last_response is not None and response_json != last_response:
                                 print("检测到数据变更！")
@@ -573,7 +572,7 @@ def start_query(config, logger):
                                 last_response = response_json
                                 config['last_response'] = last_response
                                 save_config(config)
-
+                        
                         if "ok" in response_json and response_json["ok"] is True:
                             tdd_data = response_json.get("tdd", {})
                             name = tdd_data.get("xm", "未知姓名")
@@ -583,12 +582,12 @@ def start_query(config, logger):
                             ems_num = tdd_data.get("dh", "未知单号")
                             notice_num = tdd_data.get("tzsbh", "未知编号")
                             address = tdd_data.get("txdz", "未知地址")
-
+                            
                             print(f"查询结果：已录取 - {name}（{exam_num}）")
                             print(f"学院：{college}，专业：{major}")
                             print(f"通知书编号：{notice_num}，EMS单号：{ems_num}")
                             print(f"通讯地址：{address}\n")
-
+                            
                             if config['query_mode'] == 1:
                                 if notifier and not has_pushed:
                                     send_notification(notifier, response_json, current_time)
@@ -597,7 +596,7 @@ def start_query(config, logger):
                                 print("查询结束（已检测到录取结果）")
                                 input("按回车键返回...")
                                 break
-
+                            
                             if config['query_mode'] == 2 and ems_num != "暂未发出":
                                 if notifier and not has_pushed:
                                     send_notification(notifier, response_json, current_time)
@@ -606,16 +605,16 @@ def start_query(config, logger):
                                 print("查询结束（已检测到EMS单号）")
                                 input("按回车键返回...")
                                 break
-
+                        
                         if config['query_mode'] == 3:
                             has_pushed = False
-
+                        
                         # 带ESC检测的等待
                         for _ in range(int(config['interval'] * 10)):
                             if stop_flag:
                                 break
                             time.sleep(0.1)
-
+                        
                     except json.JSONDecodeError:
                         print("响应解析错误，不是有效的JSON格式")
                         logger.error("响应解析错误，不是有效的JSON格式")
@@ -623,7 +622,7 @@ def start_query(config, logger):
                             if stop_flag:
                                 break
                             time.sleep(0.1)
-
+                        
                 except requests.exceptions.RequestException as e:
                     print(f"查询失败: {str(e)}")
                     logger.error(f"查询失败: {str(e)}")
@@ -631,16 +630,16 @@ def start_query(config, logger):
                         if stop_flag:
                             break
                         time.sleep(0.1)
-
+                    
         finally:
             keyboard.unhook_all()
-
+            
             if stop_flag:
                 print("\n用户终止查询")
                 config['last_response'] = last_response
                 save_config(config)
                 input("按回车键返回...")
-
+            
     except KeyboardInterrupt:
         print("\n返回上一层...")
         time.sleep(1)
@@ -650,25 +649,25 @@ def start_query(config, logger):
 def main_menu():
     logger = setup_logger()
     config = read_config()
-
+    
     menu_items = [
-        "1. 预填信息 - 填写考生号以及身份证号"，
+        "1. 预填信息 - 填写考生号以及身份证号",
         "2. 查询配置 - 设置查询间隔、推送方式、查询模式",
         "3. 开始查询",
         "4. 测试推送效果 - 发送一次测试推送",
         "5. 退出程序"
     ]
-
+    
     try:
         while True:
             selected_index = keyboard_menu("厦门理工学院录取查询小程序", menu_items)
             if selected_index == -1:
                 print("\n确定要退出程序吗？(y/n)")
-                if input()。strip().lower() == 'y':
+                if input().strip().lower() == 'y':
                     print("感谢使用，再见！")
                     break
                 continue
-
+            
             if selected_index == 0:
                 config = prefill_info(config)
             elif selected_index == 1:
