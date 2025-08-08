@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [ "3.12" ]  
+        python-version: [ "3.12" ]
 
     steps:
       - name: 拉取代码
@@ -44,13 +44,14 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact-name: linux
-            executable-name: xmut-admission-linux
+            base-name: xmut-admission-linux
           - os: windows-latest
             artifact-name: windows
-            executable-name: xmut-admission-windows.exe
+            base-name: xmut-admission-windows
+            extension: .exe
           - os: macos-latest
             artifact-name: macos
-            executable-name: xmut-admission-macos
+            base-name: xmut-admission-macos
 
     steps:
       - name: 拉取代码
@@ -59,7 +60,7 @@ jobs:
       - name: 设置Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'  
+          python-version: '3.12'
           cache: 'pip'
 
       - name: 安装依赖
@@ -72,6 +73,7 @@ jobs:
       - name: 打包源代码
         if: matrix.os == 'ubuntu-latest'
         run: |
+          # 版本号放在文件名中间，扩展名之前
           zip -r "xmut-admission-source-${{ github.ref_name }}.zip" \
             main.py util/ README.md requirements.txt
           # 确保文件存在
@@ -80,28 +82,43 @@ jobs:
       # 构建可执行文件
       - name: 构建可执行文件
         run: |
-          $versionedName = "${{ matrix.executable-name }}-${{ github.ref_name }}"
+          # 处理版本号，移除可能的前缀v
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          
+          # 根据系统构建带版本号的文件名（版本号在扩展名之前）
+          if ('${{ matrix.os }}' -eq 'windows-latest') {
+            $versionedName = "${{ matrix.base-name }}-$version${{ matrix.extension }}"
+          } else {
+            $versionedName = "${{ matrix.base-name }}-$version"
+          }
+          
           pyinstaller --onefile --name "$versionedName" main.py
           
           # 跨平台移动文件
           $outputPath = if ('${{ matrix.os }}' -eq 'windows-latest') {
-            "dist\$versionedName.exe"
+            "dist\$versionedName"
           } else {
             "dist/$versionedName"
           }
-          mv $outputPath .
           
-          # 验证文件是否移动成功
-          ls -l $versionedName*
+          # 验证输出路径存在
+          if (Test-Path $outputPath) {
+            mv $outputPath .
+            # 验证文件是否移动成功
+            ls -l $versionedName
+          } else {
+            Write-Error "构建输出文件不存在: $outputPath"
+            exit 1
+          }
         shell: pwsh
 
-      # 上传构建产物（明确指定文件，避免路径问题）
+      # 上传构建产物
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact-name }}-artifacts
           path: |
-            xmut-admission-*-${{ github.ref_name }}*
+            ${{ matrix.base-name }}-*
             ${{ (matrix.os == 'ubuntu-latest') && format('xmut-admission-source-{0}.zip', github.ref_name) || '' }}
 
 
@@ -125,13 +142,9 @@ jobs:
         run: |
           mkdir -p release-files
           
-          # 复制Linux可执行文件
+          # 复制各系统可执行文件（带版本号）
           cp artifacts/linux-artifacts/xmut-admission-linux-* release-files/
-          
-          # 复制Windows可执行文件
           cp artifacts/windows-artifacts/xmut-admission-windows-*.exe release-files/
-          
-          # 复制macOS可执行文件
           cp artifacts/macos-artifacts/xmut-admission-macos-* release-files/
           
           # 复制源代码包
