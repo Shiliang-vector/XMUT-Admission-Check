@@ -120,7 +120,8 @@ jobs:
           path: |
             ${{ matrix.base-name }}-*
             ${{ (matrix.os == 'ubuntu-latest') && format('xmut-admission-source-{0}.zip', github.ref_name) || '' }}
-
+            exclude: |
+            **/*.spec  # 排除所有.spec文件
 
   create-release:
     needs: build-artifacts
