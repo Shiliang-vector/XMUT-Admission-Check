@@ -46,9 +46,8 @@
 ```
 。
 ├── main.py           # 主程序入口
-├── util/
-│   ├── Notifier.py   # 推送基类
-│   └── Push.py       # 具体推送实现
+├── Notifier.py       # 推送基类
+├── Push.py           # 具体推送实现
 ├── config.json       # 配置文件（自动生成）
 └── logs/             # 日志文件目录（自动生成）
 ```
