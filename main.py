@@ -6,7 +6,6 @@ import sys
 import logging
 from datetime import datetime
 import keyboard
-# 假设以下导入存在
 from util.Notifier import NotifierBase
 from util.Push import PushPlusNotifier, ServerChanTurboNotifier
 
